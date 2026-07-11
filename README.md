@@ -233,6 +233,23 @@ implemented:
   confidential-computing proof, but for *data provenance* instead of *compute
   provenance*. No concrete design exists yet; contributions/proposals welcome.
 
+## Dataset warning (read before you submit)
+
+**Dataset-track miners must follow the terms of service of every teacher gateway and
+upstream model provider used to build their data** (OpenRouter, yunwu, Anthropic, OpenAI,
+etc.). Submitting a verified bundle or opening a registry PR does not mean maintainers
+have reviewed, approved, or warranted your legal right to collect, train on, or
+redistribute that dataset.
+
+**SparkDistill maintainers accept no responsibility** for miner compliance, copyright or
+licensing claims, regulatory exposure, or how third parties use published trajectories.
+Technical verification (`dataset:*` labels, GPU attestation, SparkProof policy) proves
+bundle integrity — not that your use of teacher APIs was permitted. See
+[SparkProof `CONTRIBUTING.md`](https://github.com/gittensor-model-hub/SparkProof/blob/main/CONTRIBUTING.md)
+for the full terms-of-service gate.
+
+built by :Love
+
 ## License
 
 MIT, see [`LICENSE`](LICENSE).
