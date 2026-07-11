@@ -323,7 +323,7 @@
       </div>
     </div>
     <div class="callout">
-      <p><strong>Proof-of-training fast path:</strong> a checkpoint bundle, evaluation scores, training time, GPU claim, and optional RTX PRO 6000 CC attestation can enable a cheap held-out re-score instead of a full retrain. It never replaces the public recipe and dataset; unattested submissions fall back to retraining from source.</p>
+      <p><strong>Proof-of-training fast path:</strong> a <em>weights-free</em> claim bundle — evaluation scores, training time, GPU claim, and a per-file hash manifest of the checkpoint, cryptographically bound to an RTX PRO 6000 CC attestation via its <code>claim_sha256</code> nonce — enables a cheap held-out re-score instead of a blind full retrain. Trained weights never leave the miner's machine: the validator reproduces the checkpoint from the public recipe and dataset. Unattested submissions fall back to retraining from source.</p>
     </div>
   </section>
 
