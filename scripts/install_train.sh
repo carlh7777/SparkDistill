@@ -19,6 +19,14 @@ uv sync --extra dev
 echo ">>> installing Axolotl + torchvision"
 uv pip install -q axolotl torchvision numba ninja packaging einops "numpy<2.5"
 
+echo ">>> installing CutCrossEntropy (Axolotl fork)"
+if uv run --no-sync python -c "import cut_cross_entropy" 2>/dev/null; then
+  echo "  cut-cross-entropy: already installed"
+else
+  uv pip install -q "cut-cross-entropy[transformers] @ git+https://github.com/axolotl-ai-cloud/ml-cross-entropy.git@fec1a88"
+  uv run --no-sync python -c "import cut_cross_entropy; print('  cut-cross-entropy: installed')"
+fi
+
 install_fa2() {
   export FLASH_ATTN_CUDA_ARCHS="${FLASH_ATTN_CUDA_ARCHS:-${gpu_major}0}"
   if uv run --no-sync python -c "import flash_attn" 2>/dev/null; then
