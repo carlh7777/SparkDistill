@@ -58,24 +58,19 @@ def fetch_remote_mix_manifest(
     return manifest
 
 
-def verify_remote_matches_pin(
+def verify_manifest_matches_pin(
+    remote: dict[str, Any],
     *,
     repo_id: str | None = None,
-    hf_token: str | None = None,
     pin_path: Path = CANONICAL_PATH,
 ) -> list[str]:
-    """Return issues when the live HF canonical dataset does not match datasets/canonical.json."""
+    """Return issues when a fetched HF mix_manifest does not match datasets/canonical.json."""
     issues: list[str] = []
     pin = load_canonical(pin_path)
     expected_repo = str(pin.get("repo_id") or DEFAULT_MINING_DATASET_REPO)
     repo = (repo_id or expected_repo).strip()
     if repo != expected_repo:
         issues.append(f"repo_id {repo!r} does not match pinned {expected_repo!r}")
-
-    try:
-        remote = fetch_remote_mix_manifest(repo_id=repo, hf_token=hf_token)
-    except Exception as exc:
-        return issues + [f"failed to download {repo}/{MINING_MANIFEST_PATH}: {exc}"]
 
     pinned_manifest = pin.get("mix_manifest") or {}
     remote_sft_sha = remote.get("sft_sha256")
@@ -94,6 +89,21 @@ def verify_remote_matches_pin(
             f"canonical rows_total mismatch: HF has {remote_rows!r}, pin has {expected_rows!r}"
         )
     return issues
+
+
+def verify_remote_matches_pin(
+    *,
+    repo_id: str | None = None,
+    hf_token: str | None = None,
+    pin_path: Path = CANONICAL_PATH,
+) -> list[str]:
+    """Return issues when the live HF canonical dataset does not match datasets/canonical.json."""
+    repo = (repo_id or canonical_repo_id(pin_path)).strip()
+    try:
+        remote = fetch_remote_mix_manifest(repo_id=repo, hf_token=hf_token)
+    except Exception as exc:
+        return [f"failed to download {repo}/{MINING_MANIFEST_PATH}: {exc}"]
+    return verify_manifest_matches_pin(remote, repo_id=repo, pin_path=pin_path)
 
 
 def write_pin_from_remote(

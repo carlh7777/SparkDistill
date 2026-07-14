@@ -11,9 +11,11 @@ from typing import Any
 from eval.mining_dataset import DEFAULT_MINING_DATASET_REPO, mining_dataset_repo
 from eval.canonical_dataset import (
     CANONICAL_TRAINING_DATASET_PATH,
+    canonical_hf_url,
     canonical_repo_id,
+    fetch_remote_mix_manifest,
     sha256_matches_canonical_export,
-    verify_remote_matches_pin,
+    verify_manifest_matches_pin,
 )
 
 
@@ -23,6 +25,7 @@ def export_mining_sft(
     repo_id: str | None = None,
     hf_token: str | None = None,
     verify_pin: bool = True,
+    mix_manifest_out: Path | None = None,
 ) -> dict[str, Any]:
     """Download HF mining split and write messages-only jsonl for Axolotl."""
     from datasets import load_dataset
@@ -35,10 +38,15 @@ def export_mining_sft(
             f"training exports must use the canonical mining repo {canonical_repo_id()!r}, got {repo!r}"
         )
 
+    remote_manifest = fetch_remote_mix_manifest(repo_id=repo, hf_token=hf_token)
     if verify_pin:
-        pin_issues = verify_remote_matches_pin(repo_id=repo, hf_token=hf_token)
+        pin_issues = verify_manifest_matches_pin(remote_manifest, repo_id=repo)
         if pin_issues:
             raise ValueError("; ".join(pin_issues))
+
+    mix_manifest_path = (mix_manifest_out or out_path.parent / "mix_manifest.json").resolve()
+    mix_manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    mix_manifest_path.write_text(json.dumps(remote_manifest, indent=2) + "\n", encoding="utf-8")
 
     ds = load_dataset(repo, split="train", token=hf_token)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -62,8 +70,11 @@ def export_mining_sft(
 
     return {
         "repo_id": repo,
+        "dataset_url": canonical_hf_url(),
         "rows_written": rows_written,
         "out_path": str(resolved_out),
+        "mix_manifest_path": str(mix_manifest_path),
+        "mix_manifest_sft_sha256": remote_manifest.get("sft_sha256"),
     }
 
 
@@ -81,6 +92,12 @@ def main(argv: list[str] | None = None) -> int:
         help=f"HF datasets repo (default: {DEFAULT_MINING_DATASET_REPO})",
     )
     parser.add_argument(
+        "--mix-manifest-out",
+        type=Path,
+        default=None,
+        help="write HF mix_manifest.json (default: beside --out, e.g. data/processed/mix_manifest.json)",
+    )
+    parser.add_argument(
         "--skip-pin-check",
         action="store_true",
         help="skip verification against datasets/canonical.json (local dev only)",
@@ -95,6 +112,7 @@ def main(argv: list[str] | None = None) -> int:
             repo_id=args.repo_id,
             hf_token=os.environ.get("HF_TOKEN"),
             verify_pin=not args.skip_pin_check,
+            mix_manifest_out=args.mix_manifest_out,
         )
     except Exception as exc:
         print(f"prepare mining sft failed: {exc}", file=sys.stderr)

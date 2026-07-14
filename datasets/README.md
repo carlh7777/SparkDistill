@@ -94,7 +94,8 @@ Hugging Face so local `scripts/prepare_mining_sft.sh` and training-track CI shar
 pin.
 
 **Training-track rule:** recipes must use `data/processed/sparkproof-mining_sft.jsonl`
-only. Prepare with `scripts/prepare_mining_sft.sh` (verifies HF matches `canonical.json`).
+only. Prepare with `scripts/prepare_mining_sft.sh` (verifies HF matches `canonical.json` and
+writes `data/processed/mix_manifest.json` for `proof.bundle --mix-manifest`).
 PRs that add local generators, private blends, or alternate recipe paths are rejected by
 `eval.training_track_gate`. Proof bundles must set `dataset_url` to the canonical `hf_url`.
 

@@ -319,15 +319,17 @@ much cheaper verification pass:
 # install the attestation + Hugging Face publishing extras
 uv sync --extra proof
 
+# prepare canonical training data + mix_manifest.json for the proof bundle
+scripts/prepare_mining_sft.sh
+
 # 1. package the CLAIM into a bundle — eval scores + training claims + a per-file
 #    sha256 manifest of your checkpoint. The weights themselves are NOT uploaded:
 #    the validator reproduces your checkpoint locally from the recipe + dataset.
 python -m proof.bundle --checkpoint outputs/<your-checkpoint> --scores eval/results/candidate.json \
     --run-id <run-id> --out proof/_bundles/<run-id> \
     --train-hours 4.2 --train-gpu "NVIDIA RTX PRO 6000 Blackwell" \
-    --dataset-url https://huggingface.co/datasets/<user>/<merged-dataset>
-# or, for a cross-miner mix:
-#   --mix-manifest data/processed/mix_manifest.json
+    --dataset-url https://huggingface.co/datasets/gittensor-model-hub/sparkproof-mining \
+    --mix-manifest data/processed/mix_manifest.json
 # note the printed claim_sha256
 
 # 2. attest the GPU you trained/evaluated on, passing the claim_sha256 as the nonce
