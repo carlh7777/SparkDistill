@@ -78,6 +78,9 @@ sparkproof-publish-dataset \
 
 `novelty_report.json` will then include registry duplicates, not just
 intra-bundle duplicates. Target `novel_verified_rows` ≥ 25 before publishing.
+Pin the snapshot by comparing your file's sha256 to
+`mix_manifest.accepted_registry_snapshot_sha256` on the canonical mining repo
+(or `datasets/canonical.json` after the next pin refresh).
 The lightweight `accepted_task_ids.json` on the same HF repo is useful for
 pre-generation filtering so you do not burn GPU on tasks already accepted.
 

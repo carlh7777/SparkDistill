@@ -147,6 +147,10 @@ def test_gate_merges_when_mining_publish_succeeds(monkeypatch):
         "compute_rows_selected_for_entry",
         lambda *args, **kwargs: {"verified": True, "rows_selected": 25, "issues": []},
     )
+    monkeypatch.setattr(
+        "eval.export_registry_snapshot.verify_remote_registry_snapshot",
+        lambda *args, **kwargs: [],
+    )
 
     report = registry_gate.gate_registry_pr(
         base_registry_text="",

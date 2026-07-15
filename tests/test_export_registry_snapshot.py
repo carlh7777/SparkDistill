@@ -1,7 +1,12 @@
 import json
 from pathlib import Path
 
-from eval.export_registry_snapshot import collect_accepted_trajectories, write_registry_snapshot
+from eval.export_registry_snapshot import (
+    attach_snapshot_pins_to_manifest,
+    collect_accepted_trajectories,
+    verify_registry_snapshot_pins,
+    write_registry_snapshot,
+)
 from eval.mix_registry import load_trajectories_jsonl
 
 
@@ -82,3 +87,47 @@ def test_write_registry_snapshot_writes_task_id_index(tmp_path, monkeypatch):
     assert len(load_trajectories_jsonl(out)) == 1
     payload = json.loads(task_ids.read_text())
     assert payload["task_ids"] == ["task_a"]
+
+
+def test_snapshot_manifest_pins_and_verify(tmp_path, monkeypatch):
+    bundle = tmp_path / "a" / "proof"
+    bundle.mkdir(parents=True)
+    (bundle / "trajectories.jsonl").write_text(json.dumps(_traj("task_a", "prompt A")) + "\n")
+    entry = {
+        "miner": "alice",
+        "hf_url": "https://huggingface.co/datasets/org/a",
+        "trajectories_sha256": "a" * 64,
+        "rows_total": 1,
+        "dataset_version": "triton-distill-v0.2",
+        "gpu_architecture": "blackwell",
+    }
+    monkeypatch.setattr(
+        "eval.export_registry_snapshot.resolve_proof_dir",
+        lambda entry, proof_cache=None, download_proof=None: bundle,
+    )
+
+    out = tmp_path / "snapshot.jsonl"
+    task_ids = tmp_path / "task_ids.json"
+    manifest_path = tmp_path / "mix_manifest.json"
+    manifest_path.write_text("{}\n")
+
+    report = write_registry_snapshot([entry], out_path=out, task_ids_path=task_ids, sparkproof_root=None)
+    manifest = attach_snapshot_pins_to_manifest(manifest_path, report)
+    assert manifest["accepted_registry_snapshot_sha256"] == report["sha256"]
+    assert verify_registry_snapshot_pins(
+        [entry],
+        manifest=manifest,
+        snapshot_path=out,
+        task_ids_path=task_ids,
+        sparkproof_root=None,
+    ) == []
+
+    manifest["accepted_registry_snapshot_sha256"] = "f" * 64
+    issues = verify_registry_snapshot_pins(
+        [entry],
+        manifest=manifest,
+        snapshot_path=out,
+        task_ids_path=task_ids,
+        sparkproof_root=None,
+    )
+    assert any("does not match mix_manifest pin" in issue for issue in issues)

@@ -190,12 +190,12 @@ def aggregate_and_publish_mining_dataset(
             }
 
         publish = publish_fn or publish_sft_dataset
-        pub_report = publish(
-            sft_path=mix_report["sft_path"],
-            manifest_path=mix_report["manifest_path"],
-            repo_id=repo_id,
+        from eval.export_registry_snapshot import (
+            attach_snapshot_pins_to_manifest,
+            publish_registry_snapshot,
+            verify_registry_snapshot_pins,
+            write_registry_snapshot,
         )
-        from eval.export_registry_snapshot import publish_registry_snapshot, write_registry_snapshot
 
         snapshot_path = work_dir / "accepted_registry_snapshot.jsonl"
         task_ids_path = work_dir / "accepted_task_ids.json"
@@ -206,6 +206,29 @@ def aggregate_and_publish_mining_dataset(
             sparkproof_root=sparkproof_root,
             dedupe=dedupe,
             download_proof=download_proof,
+        )
+        manifest = attach_snapshot_pins_to_manifest(mix_report["manifest_path"], snapshot_report)
+        pin_issues = verify_registry_snapshot_pins(
+            mix_report["registry_entries"],
+            manifest=manifest,
+            snapshot_path=snapshot_path,
+            task_ids_path=task_ids_path,
+            sparkproof_root=sparkproof_root,
+            dedupe=dedupe,
+            download_proof=download_proof,
+        )
+        if pin_issues:
+            return {
+                "published": False,
+                "issues": pin_issues,
+                "rows_total": mix_report.get("rows_total"),
+                "components": mix_report.get("components") or [],
+            }
+
+        pub_report = publish(
+            sft_path=mix_report["sft_path"],
+            manifest_path=mix_report["manifest_path"],
+            repo_id=repo_id,
         )
         pub_report["registry_snapshot"] = publish_registry_snapshot(
             snapshot_path,
