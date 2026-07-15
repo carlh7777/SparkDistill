@@ -418,6 +418,18 @@ def gate_registry_pr(
             if not mining_report.get("published"):
                 merge_eligible_flag = False
                 issues.extend(list(mining_report.get("issues") or ["mining dataset publish failed"]))
+            else:
+                from eval.export_registry_snapshot import verify_remote_registry_snapshot
+
+                snapshot_issues = verify_remote_registry_snapshot(
+                    proposed_registry,
+                    repo_id=mining_dataset_repo_id,
+                    hf_token=os.environ.get("HF_TOKEN"),
+                    sparkproof_root=sparkproof_root,
+                )
+                if snapshot_issues:
+                    merge_eligible_flag = False
+                    issues.extend(snapshot_issues)
 
     return {
         "verified": report.get("verified", False),

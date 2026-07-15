@@ -32,7 +32,7 @@ def test_aggregate_registry_text_dedupes_by_sha():
     assert rows[1]["miner"] == "bob"
 
 
-def test_aggregate_and_publish_mining_dataset(tmp_path: Path):
+def test_aggregate_and_publish_mining_dataset(tmp_path: Path, monkeypatch):
     (tmp_path / "a").mkdir()
     proof_a, _ = _write_proof_dir(tmp_path / "a", rows=1)
     (proof_a / "trajectories.jsonl").write_text(json.dumps(_trajectory("prompt-a", "resp-a")) + "\n", encoding="utf-8")
@@ -61,6 +61,15 @@ def test_aggregate_and_publish_mining_dataset(tmp_path: Path):
             "rows_total": 1,
             "issues": [],
         }
+
+    monkeypatch.setattr(
+        "eval.export_registry_snapshot.publish_registry_snapshot",
+        lambda *args, **kwargs: {
+            "published": True,
+            "hf_url": "https://huggingface.co/datasets/org/mining",
+            "rows_total": 1,
+        },
+    )
 
     report = aggregate_and_publish_mining_dataset(
         entries,
@@ -137,6 +146,10 @@ def test_gate_merges_when_mining_publish_succeeds(monkeypatch):
         registry_gate,
         "compute_rows_selected_for_entry",
         lambda *args, **kwargs: {"verified": True, "rows_selected": 25, "issues": []},
+    )
+    monkeypatch.setattr(
+        "eval.export_registry_snapshot.verify_remote_registry_snapshot",
+        lambda *args, **kwargs: [],
     )
 
     report = registry_gate.gate_registry_pr(

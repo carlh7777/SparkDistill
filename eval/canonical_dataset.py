@@ -129,6 +129,13 @@ def write_pin_from_remote(
             "sft_sha256": sft_sha,
         },
     }
+    mix_manifest = payload["mix_manifest"]
+    if isinstance(remote.get("accepted_registry_snapshot_sha256"), str):
+        mix_manifest["accepted_registry_snapshot_sha256"] = remote["accepted_registry_snapshot_sha256"]
+    if remote.get("accepted_registry_snapshot_rows_total") is not None:
+        mix_manifest["accepted_registry_snapshot_rows_total"] = remote["accepted_registry_snapshot_rows_total"]
+    if isinstance(remote.get("accepted_task_ids_sha256"), str):
+        mix_manifest["accepted_task_ids_sha256"] = remote["accepted_task_ids_sha256"]
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     return payload
