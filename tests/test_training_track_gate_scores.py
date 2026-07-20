@@ -33,7 +33,27 @@ def _fake_snapshot(bundle_dir: Path):
     return fake_snapshot_download
 
 
+def test_verify_remote_proof_bundle_scores_rejects_without_attestation(tmp_path, monkeypatch):
+    from eval.canonical_dataset import canonical_hf_url
+
+    bundle = tmp_path / "bundle"
+    bundle.mkdir()
+    (bundle / "manifest.json").write_text(json.dumps({"run_id": "r1", "dataset_url": canonical_hf_url()}))
+    (bundle / "eval_scores.json").write_text(json.dumps({"scores": {"triton": 0.5444}}))
+
+    monkeypatch.setattr("huggingface_hub.snapshot_download", _fake_snapshot(bundle))
+
+    issues, eval_label = verify_remote_proof_bundle_scores(
+        "org/repo",
+        head_ref="HEAD",
+        changed_paths=["recipes/foo.yaml"],
+    )
+    assert eval_label == "eval:REJECT"
+    assert any("attestation.json" in issue for issue in issues)
+
+
 def test_verify_remote_proof_bundle_scores_tiers_claims_on_checkpoint_required(tmp_path, monkeypatch):
+    import eval.training_track_gate as gate
     from eval.canonical_dataset import canonical_hf_url
 
     bundle = tmp_path / "bundle"
@@ -42,13 +62,18 @@ def test_verify_remote_proof_bundle_scores_tiers_claims_on_checkpoint_required(t
     (bundle / "eval_scores.json").write_text(json.dumps({"scores": {"triton": 0.421}}))
 
     monkeypatch.setattr("huggingface_hub.snapshot_download", _fake_snapshot(bundle))
+    monkeypatch.setattr(
+        gate,
+        "_git_show",
+        lambda ref, path: json.dumps({"passed": True}) if path.endswith("attestation.json") else "",
+    )
 
     issues, eval_label = verify_remote_proof_bundle_scores(
         "org/repo",
         head_ref="HEAD",
-        changed_paths=None,
+        changed_paths=["recipes/foo.yaml", "runs/r1/attestation.json"],
     )
-    # proof-only bundles defer checkpoint re-run; tier claimed scores for gating.
+    # proof-only bundles defer checkpoint re-run; tier claimed scores when attestation binds the PR.
     assert issues == []
     assert eval_label == "eval:none"
 
