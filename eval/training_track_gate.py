@@ -421,6 +421,23 @@ def _download_and_verify_bundle(
     return report, attestation, None, bundle_dir
 
 
+def _attestation_issues_for_eval_tiering(
+    changed_paths: list[str] | None,
+    attestation: dict | None,
+) -> list[str]:
+    """Training-track eval tiering requires a passed attestation committed in the PR."""
+    if find_attestation_path(changed_paths) is None:
+        return [
+            "training-track eval tiering requires runs/<run-id>/attestation.json in the PR "
+            "(proof-only HF bundles without attestation cannot earn eval:XL/L/M/S/XS labels)"
+        ]
+    if attestation is None:
+        return ["could not read attestation.json from the PR head for eval tiering"]
+    if not attestation.get("passed"):
+        return ["attestation.json must report passed: true for eval tiering"]
+    return []
+
+
 def verify_remote_proof_bundle_scores(
     repo_id: str,
     *,
@@ -442,17 +459,18 @@ def verify_remote_proof_bundle_scores(
     Never needs a GPU: proof bundles are weights-free (no checkpoint on HF), so
     any claimed benchmark that isn't covered by an attested sample always ends in
     verify_submission's "checkpoint_required" reason rather than an actual harness
-    re-run — that reason is intentionally not gated here, since it just means part
-    of the claim is deferred to off-CI validator verification, not that anything
-    checkable here failed.
+    re-run. Reward-tier labels (`eval:XL` / `eval:L` / …) may only be derived from
+    those deferred claims when the PR also commits `runs/<run-id>/attestation.json`
+    with a passing GPU CC attestation that binds the bundle — otherwise the
+    submission is `eval:REJECT` (unattested claimed scores are not tiered).
 
     Returns `(issues, eval_label)` — `eval_label` is the reward-tier label
     eval.verify computed (e.g. "eval:BASELINE", "eval:XL", "eval:REJECT"), or
-    a tier derived from claimed scores when verify is deferred
-    ("checkpoint_required"), or None when nothing could be computed (download
-    failure).
+    a tier derived from claimed scores when verify is deferred *and* attestation
+    is present ("checkpoint_required"), or None when nothing could be computed
+    (download failure).
     """
-    report, _attestation, error, bundle_dir = _download_and_verify_bundle(
+    report, attestation, error, bundle_dir = _download_and_verify_bundle(
         repo_id, head_ref=head_ref, changed_paths=changed_paths, hf_token=hf_token
     )
     if error is not None:
@@ -461,6 +479,12 @@ def verify_remote_proof_bundle_scores(
         return [], None
     if report.get("reason") == "checkpoint_required":
         if bundle_dir is not None:
+            attestation_issues = _attestation_issues_for_eval_tiering(
+                changed_paths,
+                attestation,
+            )
+            if attestation_issues:
+                return attestation_issues, "eval:REJECT"
             manifest = json.loads((bundle_dir / "manifest.json").read_text(encoding="utf-8"))
             return [], score_claimed_eval_label(bundle_dir, manifest)
         return [], None
