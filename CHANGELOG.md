@@ -21,6 +21,12 @@ All notable changes to SparkDistill are documented here. The format follows
   string, `null`, …), made `parse_added_registry_lines` / `gate_registry_pr` raise
   `ValueError` / `AttributeError` before a rejection report could be returned. The
   gate now catches those parse failures and returns `dataset:REJECT` with the issue.
+- **Dataset registry gate duplicate check tolerates malformed prior lines**: building
+  the `seen_hf` / `seen_sha` index over existing registry rows called
+  `hf_repo_from_url(row["hf_url"])` unguarded, so a prior line with a malformed
+  `hf_url` could raise `ValueError` and fail CI with a traceback instead of
+  returning a clean `dataset:REJECT` for the new submission. Existing rows now use
+  the same safe lookup as newly appended lines.
 
 ## [0.1.2] — 2026-07-15
 
